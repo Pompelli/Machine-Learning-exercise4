@@ -1,0 +1,21 @@
+[project]
+name = "Machine-Learning-exercise5"
+version = "0.1.0"
+description = "Default template for PDM package"
+authors = [
+    {name = "Noel Hack", email = "Noel.hack12@gmail.com"},
+]
+dependencies = [
+    "pandas>=2.2.3",
+    "seaborn>=0.13.2",
+    "matplotlib>=3.9.2",
+    "palmerpenguins>=0.1.4",
+    "setuptools>=75.6.0",
+]
+requires-python = "==3.10.*"
+readme = "README.md"
+license = {text = "MIT"}
+
+
+[tool.pdm]
+distribution = false
