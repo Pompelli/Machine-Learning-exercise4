@@ -34,6 +34,7 @@ plt.ylabel("Bill Depth (mm)")
 plt.legend(title="Species")
 plt.show()
 
+
 # Pairplot for all features
 sns.pairplot(penguins_cleaned, hue='species', diag_kind='kde')
 plt.suptitle('Feature combinations by species', y=1.02)

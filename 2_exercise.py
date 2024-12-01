@@ -14,7 +14,7 @@ penguins = load_penguins()
 
 
 # only use  'species', 'bill_length_mm', 'bill_depth_mm', and 'flipper_length_mm'
-penguins_filtered = penguins.dropna(subset=['species', 'bill_length_mm', 'bill_depth_mm', 'flipper_length_mm'])
+penguins_filtered = penguins.dropna(subset=['species', 'bill_length_mm', 'bill_depth_mm'])
 
 # Filter to only include two species: 'Chinstrap' and 'Gentoo'
 penguins_filtered = penguins_filtered[penguins_filtered['species'].isin(['Chinstrap', 'Gentoo'])]
