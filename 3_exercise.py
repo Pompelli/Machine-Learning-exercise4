@@ -1,99 +1,124 @@
 import numpy as np
 import matplotlib.pyplot as plt
-from sklearn.model_selection import train_test_split, GridSearchCV
 from sklearn.svm import SVC
-from sklearn.preprocessing import PolynomialFeatures, StandardScaler
 from sklearn.pipeline import make_pipeline
+from sklearn.preprocessing import StandardScaler, PolynomialFeatures
+from sklearn.metrics import accuracy_score
+from sklearn.model_selection import GridSearchCV
 from palmerpenguins import load_penguins
 
-
+# Load the Palmer Penguins dataset
 penguins = load_penguins()
 
-penguins_filtered = penguins.dropna(subset=['species', 'bill_length_mm', 'bill_depth_mm'])
-penguins_filtered = penguins_filtered[penguins_filtered['species'].isin(['Chinstrap', 'Gentoo'])]
+# Remove rows with missing values
+penguins = penguins.dropna()
 
-X = penguins_filtered[['bill_length_mm', 'bill_depth_mm']]
-y = penguins_filtered['species'].map({'Chinstrap': 0, 'Gentoo': 1})  
+# Select two features and two species
+species = ['Adelie', 'Chinstrap']
+data = penguins[penguins['species'].isin(species)][['bill_length_mm', 'bill_depth_mm', 'species']]
 
-X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=69)
+# Encode the species as numeric values (Adelie = 0, Chinstrap = 1)
+data['species'] = data['species'].map({'Adelie': 0, 'Chinstrap': 1})
 
-# (a) Create a pipeline for polynomial SVC with degree 3
+# Split the data into features and target
+X = data[['bill_length_mm', 'bill_depth_mm']]
+y = data['species']
 
-degree = 3  
-poly_svc_pipeline = make_pipeline(
-    StandardScaler(),  # Scale the features to have zero mean and unit variance
-    PolynomialFeatures(degree),  # Transform the features to polynomial features of the given degree
-    SVC(kernel='poly', degree=degree, random_state=69)  # Train SVC with a polynomial kernel
-)
-
-# Train model
-poly_svc_pipeline.fit(X_train, y_train)
-
-# Evaluate the model on the test data
-accuracy = poly_svc_pipeline.score(X_test, y_test)
-print(f"Polynomial SVC accuracy: {accuracy:.2f}")
-
-# (b) Define a function to visualize the decision boundary
-def plot_decision_boundary(X, y, model, degree, ax=None):
-    # Create a mesh grid for plotting the decision boundary
-    h = 0.02  # Step size in the mesh grid
-    x_min, x_max = X[:, 0].min() - 1, X[:, 0].max() + 1
-    y_min, y_max = X[:, 1].min() - 1, X[:, 1].max() + 1
-    xx, yy = np.meshgrid(np.arange(x_min, x_max, h),
-                         np.arange(y_min, y_max, h))
+# Function to visualize the decision boundaries
+def plot_decision_boundary(X, y, model, ax, title="Decision Boundary"):
+    # Set the step size for the mesh grid used to visualize the decision boundary
+    h = 0.02  # Step size in the mesh (the smaller the value, the finer the resolution)
     
-    # Predict the class labels for each point in the grid
-    Z = model.predict(np.c_[xx.ravel(), yy.ravel()])
-    Z = Z.reshape(xx.shape)  # Reshape the result to match the grid
+    # Determine the minimum and maximum values for both axes (X and Y) and add some margin
+    x_min, x_max = X.iloc[:, 0].min() - 1, X.iloc[:, 0].max() + 1
+    y_min, y_max = X.iloc[:, 1].min() - 1, X.iloc[:, 1].max() + 1
     
-    if ax is None:
-        ax = plt.gca()  # If no axis is provided, use the current axis
-    ax.contourf(xx, yy, Z, alpha=0.75, cmap=plt.cm.coolwarm)  # Plot the decision boundary
-    ax.scatter(X[:, 0], X[:, 1], c=y, cmap=plt.cm.coolwarm, edgecolors='k', marker='o', s=100)  # Plot the data points
-    ax.set_title(f"Polynomial SVC (Degree={degree})")
-    ax.set_xlabel('Bill Length (scaled)')
-    ax.set_ylabel('Bill Depth (scaled)')
+    # Create the mesh grid that covers all combinations of X and Y within the defined range
+    xx, yy = np.meshgrid(np.arange(x_min, x_max, h),   # X values
+                         np.arange(y_min, y_max, h))   # Y values
+    
+    # Make predictions for every point in the mesh grid (for all possible combinations of x and y)
+    Z = model.predict(np.c_[xx.ravel(), yy.ravel()])  # .ravel() flattens the 2D array into a 1D array
+    Z = Z.reshape(xx.shape)  # Reshape Z back to the shape of the mesh grid
+    
+    # Visualize the decision boundaries as colored regions (according to the model's classifications)
+    ax.contourf(xx, yy, Z, alpha=0.8)  # Fill contours (based on the predicted class labels)
+    
+    # Scatter plot of the actual data points, colored according to their true labels (y)
+    scatter = ax.scatter(X.iloc[:, 0], X.iloc[:, 1], c=y, edgecolors='k', marker='o', cmap=plt.cm.coolwarm)
+    
+    # Set the title for the plot
+    ax.set_title(title)
+    
+    return scatter
 
-# (b) Visualize the decision boundary for different degrees of polynomial
-fig, axes = plt.subplots(1, 3, figsize=(18, 6))  # Create subplots for different degrees
 
-# Train and plot for polynomial degrees 2, 3, and 5
-for i, degree in enumerate([2, 3, 5]):
-    model = make_pipeline(StandardScaler(), PolynomialFeatures(degree), SVC(kernel='poly', degree=degree, random_state=42))
-    model.fit(X_train, y_train)
-    plot_decision_boundary(X_train.to_numpy(), y_train.to_numpy(), model, degree, axes[i])  # Plot the decision boundary for each degree
+# (a) Polynomial SVC with pipeline
+# Create a model with StandardScaler and PolynomialFeatures
+degree = 3
+model_poly = make_pipeline(StandardScaler(), 
+                           PolynomialFeatures(degree), 
+                           SVC(kernel='linear', C=1))
 
-plt.tight_layout()  # Adjust layout to prevent overlap
-plt.show()  # Display the plot
+# Train the model
+model_poly.fit(X, y)
 
-# (c) Use the kernel trick with a polynomial kernel for SVC
+# Make predictions on the training dataset
+y_pred_poly = model_poly.predict(X)
 
-# Create an SVC model with a polynomial kernel of degree 3
-svm_poly_kernel = SVC(kernel='poly', degree=3, random_state=69)
-svm_poly_kernel.fit(X_train, y_train)
+# Calculate the accuracy
+accuracy_poly = accuracy_score(y, y_pred_poly)
+print(f'Accuracy with Polynomial SVC (Degree {degree}): {accuracy_poly * 100:.2f}%')
 
-# Evaluate the polynomial kernel model on the test data
-accuracy_kernel = svm_poly_kernel.score(X_test, y_test)
-print(f"Polynomial kernel SVC accuracy (using kernel trick): {accuracy_kernel:.2f}")
-#IDK WHY I GET 1 (100% here)!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+# (b) Visualize the decision boundaries for different polynomial degrees
+fig, axes = plt.subplots(1, 3, figsize=(18, 5))
 
-# (d) Try using the Gaussian RBF kernel and perform GridSearchCV to find the best parameters
+for i, degree in enumerate([1, 2, 3]):
+    model = make_pipeline(StandardScaler(), 
+                          PolynomialFeatures(degree),
+                          SVC(kernel='linear', C=1))
+    model.fit(X, y)
+    scatter = plot_decision_boundary(X, y, model, axes[i], title=f"Polynomial Degree {degree}")
+
+fig.tight_layout()
+plt.show()
+
+# (c) Using a Polynomial Kernel (Kernel Trick)
+model_poly_kernel = make_pipeline(StandardScaler(), 
+                                   SVC(kernel='poly', degree=3, C=1))
+
+model_poly_kernel.fit(X, y)
+
+# Visualize the decision boundary with the Polynomial Kernel
+fig, ax = plt.subplots(figsize=(8, 6))
+plot_decision_boundary(X, y, model_poly_kernel, ax, title="Polynomial Kernel")
+plt.show()
+
+# (d) Using an RBF Kernel (Gaussian Kernel) and optimizing the parameters
 param_grid = {
-    'C': [0.1, 1, 10],  # Regularization parameter
-    'gamma': ['scale', 'auto', 0.1, 1, 10]  # Kernel coefficient
+    'svc__C': [0.1, 1, 10],
+    'svc__gamma': ['scale', 'auto', 0.1, 1]
 }
 
-# Create an SVC model with an RBF kernel
-svm_rbf = SVC(kernel='rbf', random_state=42)
+model_rbf = make_pipeline(StandardScaler(), 
+                          SVC(kernel='rbf'))
 
-# Perform GridSearchCV with cross-validation to find the best parameters for the RBF kernel
-grid_search = GridSearchCV(svm_rbf, param_grid, cv=5, scoring='accuracy')
-grid_search.fit(X_train, y_train)
+grid_search = GridSearchCV(model_rbf, param_grid, cv=5)
+grid_search.fit(X, y)
 
-# Print the best parameters found by GridSearchCV
-print(f"Best parameters for RBF kernel: {grid_search.best_params_}")
+# Best parameters from GridSearchCV
+best_params = grid_search.best_params_
+print(f"Best parameters for RBF Kernel: {best_params}")
 
-# Evaluate the best RBF model on the test data
-best_model_rbf = grid_search.best_estimator_
-accuracy_rbf = best_model_rbf.score(X_test, y_test)
-print(f"RBF kernel SVC accuracy: {accuracy_rbf:.2f}")
+# Use the best model for prediction and visualization
+best_model = grid_search.best_estimator_
+
+# Visualize the decision boundary with the best RBF Kernel
+fig, ax = plt.subplots(figsize=(8, 6))
+plot_decision_boundary(X, y, best_model, ax, title="RBF Kernel with Optimized Parameters")
+plt.show()
+
+# Check accuracy on the training data
+y_pred_rbf = best_model.predict(X)
+accuracy_rbf = accuracy_score(y, y_pred_rbf)
+print(f'Accuracy with RBF Kernel: {accuracy_rbf * 100:.2f}%')
